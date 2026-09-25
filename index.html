@@ -178,12 +178,46 @@ footer { border-top: 1px solid var(--rule); padding-top: 16px; font-size: 0.82re
 </section>
 
 <section>
-  <h2>8. Conclusion</h2>
+  <h2>8. Further analysis after the first model</h2>
+  <p>After the first submission we kept looking for signal the model might be missing. We compared every idea against the same baseline, 5-fold CV repeated with 5 seeds (0.6470 ± 0.0012), so small gains could be told apart from noise.</p>
+  <p>Three new patterns showed up in the data:</p>
+  <ul>
+    <li><strong>The −2.912 floor.</strong> 14% of alerts have at least one incoming bank transfer at the minimum amount index. Only 9.8% of those alerts were escalated, compared with 18.4% of the rest.</li>
+    <li><strong>Weekly rhythm.</strong> We measured how similar a customer's daily transaction counts are one week apart (lag-7 autocorrelation). Escalated customers are a bit more regular week to week, and the escalation rate rises from 15.1% to 19.2% across quintiles.</li>
+    <li><strong>Steadier amounts.</strong> The average jump between one transaction's amount and the next is smaller for escalated customers. The escalation rate falls from 20.5% to 13.7% across quintiles.</li>
+  </ul>
+  <div class="two">
+    <div class="fig"><div class="fig-title">Escalation rate by weekly-rhythm quintile</div>
+      <div class="fig-sub">Lag-7 autocorrelation of daily counts, low → high</div>
+      <div class="chart" id="c-ac7"></div></div>
+    <div class="fig"><div class="fig-title">Escalation rate by amount-jump quintile</div>
+      <div class="fig-sub">Mean |amount − previous amount|, low → high</div>
+      <div class="chart" id="c-jump"></div></div>
+  </div>
+  <p>These patterns are real, but they overlap with features the model already had. For example, the floor effect is mostly covered by the bank-transfer amount quantiles. None of the experiments below cleared the +0.005 bar we set before resubmitting, so we kept the original model.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Experiment</th><th style="text-align:right">CV AUC</th></tr></thead>
+    <tbody>
+      <tr><td>Original model (submitted)</td><td class="num">0.6470</td></tr>
+      <tr><td>+ windowed per-type amount quantiles, IQR/MAD, money volume</td><td class="num">0.6476</td></tr>
+      <tr><td>+ burst fine structure, weekly rhythm, hour entropy, in/out transitions, floor counts</td><td class="num">0.6477</td></tr>
+      <tr><td>+ amounts relative to type×direction average (customer amount level)</td><td class="num">0.6478</td></tr>
+      <tr><td>+ full amount histogram per type×direction (78 features)</td><td class="num">0.6460</td></tr>
+      <tr><td>LightGBM tuning (7 settings)</td><td class="num">0.6431–0.6473</td></tr>
+      <tr><td>Ensemble of 6 model variants</td><td class="num">0.6482</td></tr>
+      <tr><td>Top-30 features selected inside each fold</td><td class="num">0.6485</td></tr>
+    </tbody>
+  </table></div>
+  <p>We also checked structure outside the transactions: alert ID and file order, how many alerts arrive on the same day, and escalation rate by date, week and month. All of it looked like random noise (AUC 0.49–0.51).</p>
+</section>
+
+<section>
+  <h2>9. Conclusion</h2>
   <ol>
     <li>All alerts come after a similar late-night burst of transactions, so the burst alone doesn't tell you much. The customer's earlier history matters more.</li>
     <li>Transaction size is the main signal. Escalated customers have smaller bank transfers and card payments over the whole 180 days.</li>
     <li>They are slightly more active, but their type mix is the same as everyone else's.</li>
-    <li>No single feature gets above ~0.575 AUC. Combining them gets to 0.649. Logistic regression is close to LightGBM, which suggests the signal is mostly simple and monotonic.</li>
+    <li>No single feature gets above ~0.575 AUC. Combining them gets to 0.649, and 30+ further experiments stayed within 0.646–0.6485, which looks like the ceiling for this data. Logistic regression is close to LightGBM, which suggests the signal is mostly simple and monotonic.</li>
   </ol>
 </section>
 
@@ -361,6 +395,11 @@ $("#uni").innerHTML = D.univariate_auc.slice(0, 10).map(([k]) => `<tr><td><code>
 hbar("#c-cv", { cats: ["Logistic regression", "LightGBM", "Rank blend (final)"], series: [{ n: "OOF AUC", c: "--s-dis", v: [D.cv.logreg, D.cv.lgbm, D.cv.blend] }],
   xFmt: (v) => fmt(v, 3), labelW: 170, domain: [0.5, 0.66], zero: 0.5, rowH: 30 });
 
+
+barChart("#c-ac7", { cats: ["Q1","Q2","Q3","Q4","Q5"], series: [{ n: "Escalated", c: "--s-esc", v: [0.151,0.158,0.174,0.183,0.192] }],
+  yFmt: (v, t) => pct(v, t ? 1 : 0), catFmt: c => c, yDomain: [0, 0.25], H: 240 });
+barChart("#c-jump", { cats: ["Q1","Q2","Q3","Q4","Q5"], series: [{ n: "Escalated", c: "--s-esc", v: [0.205,0.177,0.185,0.156,0.137] }],
+  yFmt: (v, t) => pct(v, t ? 1 : 0), catFmt: c => c, yDomain: [0, 0.25], H: 240 });
 }
 drawAll();
 
