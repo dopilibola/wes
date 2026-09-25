@@ -200,6 +200,8 @@ const css = v => `var(${v})`;
 
 function frame(id, W, H, m) {
   const host = $(id); host.innerHTML = "";
+  W = Math.max(280, Math.round(host.clientWidth || W));
+  m.l = Math.min(m.l, Math.round(W * 0.45));
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" }, host);
   const tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; host.appendChild(tip);
   const show = (html, x, y) => { tip.innerHTML = html; tip.hidden = false; const r = svg.getBoundingClientRect(); const k = r.width / W; tip.style.left = x * k + "px"; tip.style.top = y * k + "px"; };
@@ -317,6 +319,7 @@ $("#ds-table").innerHTML = [
   ["test_transactions.parquet", D.n_tx_test, "one transaction", "same as train transactions"],
 ].map(r => `<tr><td><code>${r[0]}</code></td><td class="num">${r[1].toLocaleString("en-US")}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("");
 
+function drawAll() {
 const q = D.rate_by_quarter;
 barChart("#c-quarter", { cats: q.map(r => r[0]), series: [{ n: "Escalated", c: "--s-dis", v: q.map(r => r[1]) }],
   yFmt: (v, t) => pct(v, t ? 1 : 0), catFmt: c => c.replace("Q", " Q"), yDomain: [0, 0.22],
@@ -358,7 +361,10 @@ $("#uni").innerHTML = D.univariate_auc.slice(0, 10).map(([k]) => `<tr><td><code>
 hbar("#c-cv", { cats: ["Logistic regression", "LightGBM", "Rank blend (final)"], series: [{ n: "OOF AUC", c: "--s-dis", v: [D.cv.logreg, D.cv.lgbm, D.cv.blend] }],
   xFmt: (v) => fmt(v, 3), labelW: 170, domain: [0.5, 0.66], zero: 0.5, rowH: 30 });
 
-let rT; addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => document.querySelectorAll(".tip").forEach(t => t.hidden = true), 100); });
+}
+drawAll();
+
+let rW = innerWidth, rT; addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => { if (innerWidth !== rW) { rW = innerWidth; drawAll(); } }, 150); });
 </script>
 
 </body>
