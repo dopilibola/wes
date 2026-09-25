@@ -3,3 +3,4 @@ fintech_data/
 *.parquet
 __pycache__/
 .ipynb_checkpoints/
+research/cache/
